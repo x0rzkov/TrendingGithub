@@ -1,0 +1,28 @@
+---
+version: '3.7'
+services:
+
+  app:
+    image: github-trending:latest
+    container_name: ${NAMESPACE}_core 
+    build: .
+    env_file: .env
+    ports:
+    - 8123:8123
+    networks:
+    - internal
+    - web
+
+  redis:
+    image: redis:5-alpine
+    container_name: ${NAMESPACE}_redis 
+    restart: always
+    ports:
+    - "6379:6379"
+    networks:
+    - internal
+
+networks:
+  internal:
+  web:
+    external: true

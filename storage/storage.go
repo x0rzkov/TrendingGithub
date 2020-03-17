@@ -12,7 +12,7 @@ const (
 // Storage represents a new storage type.
 // Examples as storages are Redis or in memory.
 type Storage interface {
-	NewPool(url, auth string) Pool
+	NewPool(dir, url, auth string) Pool
 }
 
 // Pool is the implementation of a specific storage type.
@@ -42,17 +42,23 @@ type Connection interface {
 }
 
 // NewBackend returns a new connection pool based on the requested storage engine.
-func NewBackend(storageURL string, storageAuth string) Pool {
+func NewBackendFromRedis(storageURL string, storageAuth string) Pool {
 	storageBackend := RedisStorage{}
-	pool := storageBackend.NewPool(storageURL, storageAuth)
+	pool := storageBackend.NewPool("", storageURL, storageAuth)
 
+	return pool
+}
+
+// NewBackend returns a new connection pool based on the requested storage engine.
+func NewBackendFromBadger(storageDir string) Pool {
+	storageBackend := BadgerStorage{}
+	pool := storageBackend.NewPool(storageDir, "", "")
 	return pool
 }
 
 // NewDebugBackend returns a new connection pool for in memory.
 func NewDebugBackend() Pool {
 	storageBackend := MemoryStorage{}
-	pool := storageBackend.NewPool("", "")
-
+	pool := storageBackend.NewPool("", "", "")
 	return pool
 }

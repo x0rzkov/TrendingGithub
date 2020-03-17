@@ -30,3 +30,5 @@ TrendingGithub
 # Application release
 dist/
 coverage.text
+
+.env

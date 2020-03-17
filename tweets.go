@@ -6,12 +6,15 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"unicode/utf8"
+	"fmt"
 
+	"github.com/iancoleman/strcase"
 	"github.com/andygrunwald/TrendingGithub/github"
 	"github.com/andygrunwald/TrendingGithub/storage"
 	trendingwrap "github.com/andygrunwald/TrendingGithub/trending"
 	"github.com/andygrunwald/TrendingGithub/twitter"
-	"github.com/andygrunwald/go-trending"
+	trending "github.com/andygrunwald/TrendingGithub/trends"
 )
 
 // TweetLength represents the maximum number
@@ -209,7 +212,7 @@ func (ts *TweetSearch) BuildTweet(p trending.Project, repo *github.Repository) s
 
 	stars := strconv.Itoa(*repo.StargazersCount)
 	if starsLen := len(stars) + 2; tweetLen >= starsLen {
-		tweet += " ★" + stars
+		tweet += " ⭐" + formatStars(*repo.StargazersCount) + "\n\n"
 		tweetLen -= starsLen
 	}
 
@@ -220,19 +223,95 @@ func (ts *TweetSearch) BuildTweet(p trending.Project, repo *github.Repository) s
 		tweet += p.URL.String()
 	}
 
+	tweet = tweet + "\n\n"
+
 	// Lets check if we got space left to add the language as hashtag
 	language := strings.Replace(p.Language, " ", "", -1)
+
+	var topics []string
+
 	// len + 2, because of " #" in front of the hashtag
 	hashTagLen := (len(language) + 2)
 	if len(language) > 0 && tweetLen >= hashTagLen {
-		tweet += " #" + language
-
+		// tweet += " #" + language
+		topics = append(topics, "#" + language)
 		// When we want to do something more with the tweet we have to calculate the tweetLen further.
 		// So if you want to add more features to the tweet, put this line below into production.
 		// tweetLen -= hashTagLen
 	}
 
+	// tweet = tweet + " "
+
+	topics = append(topics, repo.Topics...)
+
+	for _, topic := range removeDuplicates(topics) {
+		if ts.canTweet(tweet) {
+			// topics = append(topics, strcase.ToCamel(strings.Replace(topic, "-", "", -1)))
+			tweet += "#"+ strcase.ToCamel(strings.Replace(topic, "-", "", -1)) + " "
+		} else {
+			break
+		}
+	}
+
 	return tweet
+}
+
+const (
+	UNIT     = 1.0
+	KILO = 1000 * UNIT
+	MILL = 1000 * KILO
+	GIGA = 1000 * MILL
+)
+
+func formatStars(numberOfStars int) string {
+	unit := ""
+	value := float32(numberOfStars)
+
+	switch {
+	case numberOfStars >= GIGA:
+		unit = "G"
+		value = value / GIGA
+	case numberOfStars >= MILL:
+		unit = "M"
+		value = value / MILL
+	case numberOfStars >= KILO:
+		unit = "K"
+		value = value / KILO
+	case numberOfStars >= UNIT:
+		unit = ""
+	case numberOfStars == 0:
+		return "0"
+	}
+
+	stringValue := fmt.Sprintf("%.1f", value)
+	stringValue = strings.TrimSuffix(stringValue, ".0")
+	return fmt.Sprintf("%s%s", stringValue, unit)
+}
+
+func (ts *TweetSearch) canTweet(s string) bool {
+	if utf8.RuneCountInString(s) > TweetLength {
+		return false
+	}
+	return true
+}
+
+func removeDuplicates(elements []string) []string {
+    // Use map to record duplicates as we find them.
+    encountered := map[string]bool{}
+    result := []string{}
+
+    for v := range elements {
+        if encountered[elements[v]] == true {
+            // Do not add duplicate.
+        } else {
+            // Record this element as an encountered element.
+            encountered[elements[v]] = true
+            // Append to result slice.
+            result = append(result, elements[v])
+        }
+    }
+    // Return the new slice.
+    return result
 }
 
 // MarkTweetAsAlreadyTweeted adds a projectName to the global blacklist of already tweeted projects.
@@ -295,7 +374,7 @@ func StartTweeting(twitter *twitter.Client, storageBackend storage.Pool, tweetTi
 			if err != nil {
 				log.Printf("Tweet publishing: ❌  (%s)\n", err)
 			} else {
-				log.Printf("Tweet publishing: ✅  (https://twitter.com/TrendingGithub/status/%s)\n", postedTweet.IdStr)
+				log.Printf("Tweet publishing: ✅  (https://twitter.com/lucmichalski/status/%s)\n", postedTweet.IdStr)
 			}
 		}
 		ts.MarkTweetAsAlreadyTweeted(tweet.ProjectName)

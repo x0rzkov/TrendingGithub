@@ -4,7 +4,7 @@ import (
 	"errors"
 	"math/rand"
 
-	"github.com/andygrunwald/go-trending"
+	trending "github.com/andygrunwald/TrendingGithub/trends"
 )
 
 // TrendingAPI represents the interface to the github.com/trending website

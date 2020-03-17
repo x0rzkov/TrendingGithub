@@ -16,7 +16,7 @@ import (
 
 const (
 	// Name of the application
-	Name = "@TrendingGithub"
+	Name = "@lucmichalski"
 )
 
 var (
@@ -40,17 +40,19 @@ func main() {
 		twitterFollowNewPerson   = flags.Bool("twitter-follow-new-person", "TRENDINGGITHUB_TWITTER_FOLLOW_NEW_PERSON", false, "Twitter: Follows a friend of one of our followers. Env var: TRENDINGGITHUB_TWITTER_FOLLOW_NEW_PERSON")
 
 		// Timings
-		tweetTime                = flags.Duration("twitter-tweet-time", "TRENDINGGITHUB_TWITTER_TWEET_TIME", 30*time.Minute, "Twitter: Time interval to search a new project and tweet it. Env var: TRENDINGGITHUB_TWITTER_TWEET_TIME")
+		tweetTime                = flags.Duration("twitter-tweet-time", "TRENDINGGITHUB_TWITTER_TWEET_TIME", 2*time.Minute, "Twitter: Time interval to search a new project and tweet it. Env var: TRENDINGGITHUB_TWITTER_TWEET_TIME")
 		configurationRefreshTime = flags.Duration("twitter-conf-refresh-time", "TRENDINGGITHUB_TWITTER_CONF_REFRESH_TIME", 24*time.Hour, "Twitter: Time interval to refresh the configuration of twitter (e.g. char length for short url). Env var: TRENDINGGITHUB_TWITTER_CONF_REFRESH_TIME")
 		followNewPersonTime      = flags.Duration("twitter-follow-new-person-time", "TRENDINGGITHUB_TWITTER_FOLLOW_NEW_PERSON_TIME", 45*time.Minute, "Growth hack: Time interval to search for a new person to follow. Env var: TRENDINGGITHUB_TWITTER_FOLLOW_NEW_PERSON_TIME")
 
-		// Redis storage
-		storageURL  = flags.String("storage-url", "TRENDINGGITHUB_STORAGE_URL", ":6379", "Storage URL (e.g. 1.2.3.4:6379 or :6379). Env var: TRENDINGGITHUB_STORAGE_URL")
+		// Storage
+		storageEngine = flags.String("storage-engine", "TRENDINGGITHUB_STORAGE_ENGINE", "badger", "Storage ENGINE (e.g. default, redis or badger). Env var: TRENDINGGITHUB_STORAGE_ENGINE")
+		storageDir  = flags.String("storage-dir", "TRENDINGGITHUB_STORAGE_DIR", "./shared/data", "Storage Dir (e.g. ./shared/data). Env var: TRENDINGGITHUB_STORAGE_DIR")
+		storageURL  = flags.String("storage-url", "TRENDINGGITHUB_STORAGE_URL", "127.0.1:6379", "Storage URL (e.g. 1.2.3.4:6379 or :6379). Env var: TRENDINGGITHUB_STORAGE_URL")
 		storageAuth = flags.String("storage-auth", "TRENDINGGITHUB_STORAGE_AUTH", "", "Storage Auth (e.g. myPassword or <empty>). Env var: TRENDINGGITHUB_STORAGE_AUTH")
 
 		expVarPort  = flags.Int("expvar-port", "TRENDINGGITHUB_EXPVAR_PORT", 8123, "Port which will be used for the expvar TCP server. Env var: TRENDINGGITHUB_EXPVAR_PORT")
 		showVersion = flags.Bool("version", "TRENDINGGITHUB_VERSION", false, "Outputs the version number and exit. Env var: TRENDINGGITHUB_VERSION")
-		debugMode   = flags.Bool("debug", "TRENDINGGITHUB_DEBUG", false, "Outputs the tweet instead of tweet it (useful for development). Env var: TRENDINGGITHUB_DEBUG")
+		debugMode   = flags.Bool("debug", "TRENDINGGITHUB_DEBUG", true, "Outputs the tweet instead of tweet it (useful for development). Env var: TRENDINGGITHUB_DEBUG")
 	)
 	flag.Parse()
 
@@ -71,7 +73,7 @@ func main() {
 		twitterClient.SetupFollowNewPeopleScheduling(*followNewPersonTime)
 	}
 
-	storageBackend := initStorageBackend(*storageURL, *storageAuth, *debugMode)
+	storageBackend := initStorageBackend(*storageDir, *storageURL, *storageAuth, *storageEngine)
 	initExpvarServer(*expVarPort)
 
 	// Let the party begin
@@ -117,13 +119,18 @@ func initExpvarServer(port int) {
 }
 
 // initStorageBackend will start the storage backend
-func initStorageBackend(address, auth string, debug bool) storage.Pool {
+func initStorageBackend(dir, address, auth, engine string) storage.Pool {
 	var storageBackend storage.Pool
 
-	if debug {
-		storageBackend = storage.NewDebugBackend()
-	} else {
-		storageBackend = storage.NewBackend(address, auth)
+	switch engine {
+	case "redis":
+		storageBackend = storage.NewBackendFromRedis(address, auth)
+	case "memory":
+		storageBackend = storage.NewDebugBackend()		
+	case "badger":
+		fallthrough
+	default:
+		storageBackend = storage.NewBackendFromBadger(dir)
 	}
 
 	defer storageBackend.Close()

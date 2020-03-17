@@ -24,7 +24,7 @@ type MemoryConnection struct {
 }
 
 // NewPool returns a pool to communicate with your in memory
-func (ms *MemoryStorage) NewPool(url, auth string) Pool {
+func (ms *MemoryStorage) NewPool(dir, url, auth string) Pool {
 	return MemoryPool{
 		storage: make(MemoryStorageContainer),
 	}

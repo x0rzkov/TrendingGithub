@@ -3,7 +3,7 @@ package storage
 import (
 	"time"
 
-	"github.com/garyburd/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 )
 
 const (
@@ -25,7 +25,7 @@ type RedisConnection struct {
 }
 
 // NewPool returns a new redis connection pool
-func (rs *RedisStorage) NewPool(url, auth string) Pool {
+func (rs *RedisStorage) NewPool(dir, url, auth string) Pool {
 	rp := RedisPool{
 		pool: &redis.Pool{
 			MaxIdle:     3,
